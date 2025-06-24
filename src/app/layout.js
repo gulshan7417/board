@@ -14,7 +14,7 @@ export const caveat = Caveat({
 });
 
 export const metadata = {
-  title: "InkSync",
+  title: "board",
   description: "A collaborative whiteboard for everyone.",
   manifest: "/manifest.json",
 };

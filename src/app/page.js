@@ -32,21 +32,29 @@ export default function Home({ params }) {
   }
 
   useEffect(() => {
-    setUserName(localStorage.getItem("userName") || "Anonymous")
-    if (params?.roomId?.length !== 20) {
+    const storedName = localStorage.getItem("userName")
+    if (storedName) setUserName(storedName)
+
+    if (!params?.roomId || params.roomId.length !== 20) {
       setIsLive(false)
       return
     }
-    setIsLive(true)
 
+    setIsLive(true)
     const socket = io(server, connectionOptions)
     setSocket(socket)
 
     socket.on("updateCanvas", data => {
+      console.log("Received canvas update", data)
       setElements(data.updatedElements)
       setCanvasColor(data.canvasColor)
     })
-    socket.on("getMessage", msg => setMessages(prev => [...prev, msg]))
+
+    socket.on("getMessage", msg => {
+      console.log("Received message", msg)
+      setMessages(prev => [...prev, msg])
+    })
+
     socket.on("ping", () => {
       setTimeout(() => socket.emit("pong"), 120000)
     })
@@ -59,16 +67,31 @@ export default function Home({ params }) {
   }, [params.roomId])
 
   const sendMessage = message => {
-    if (socket) socket.emit("sendMessage", { message, userName, roomId: params.roomId, socketId: socket.id })
+    if (socket && params?.roomId)
+      socket.emit("sendMessage", {
+        message,
+        userName,
+        roomId: params.roomId,
+        socketId: socket.id,
+      })
   }
 
   const updateCanvas = updatedElements => {
-    if (socket) socket.emit("updateCanvas", { roomId: params.roomId, userName, updatedElements, canvasColor })
-  }
+    if (socket && isLive) {
+      console.log("Emitting updateCanvas with", updatedElements);
+      socket.emit("updateCanvas", {
+        roomId: params.roomId,
+        userName,
+        updatedElements,
+        canvasColor,
+      });
+    }
+  };
+  
 
   return (
     <div className="flex flex-col lg:flex-row w-full h-screen overflow-hidden">
-      {/* Sidebar Toolbar - sticky/fixed on desktop, toggleable on mobile handled internally */}
+      {/* Sidebar Toolbar */}
       <Toolbar
         color={color}
         setColor={setColor}
@@ -98,7 +121,7 @@ export default function Home({ params }) {
         setFontFamily={setFontFamily}
       />
 
-      {/* Main Drawing Board */}
+      {/* Drawing Area */}
       <div className="flex-1 overflow-hidden">
         <Board
           canvasRef={canvasRef}
@@ -114,6 +137,7 @@ export default function Home({ params }) {
           updateCanvas={updateCanvas}
           fontSize={fontSize}
           fontFamily={fontFamily}
+          isLive={isLive}
         />
       </div>
     </div>

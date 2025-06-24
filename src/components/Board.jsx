@@ -1,7 +1,7 @@
-"use client";
+'use client';
+
 import { useEffect, useRef, useState } from "react";
 
-// Draws multi-line text properly on canvas
 function drawMultilineText(ctx, text, x, y, lineHeight = 24) {
   const lines = text.split("\n");
   lines.forEach((line, index) => {
@@ -9,7 +9,6 @@ function drawMultilineText(ctx, text, x, y, lineHeight = 24) {
   });
 }
 
-// Detects if (x, y) is within a shape
 function hitTest(el, x, y) {
   switch (el.type) {
     case "rect":
@@ -42,23 +41,22 @@ function hitTest(el, x, y) {
 }
 
 export default function Board({
-    canvasRef, ctx,
-    color, tool,
-    elements, setElements,
-    history, setHistory,
-    canvasColor,
-    strokeWidth,
-    updateCanvas
-  }) {
-    // refs & state
-    const isDrawing = useRef(false);
-    const startX = useRef(0), startY = useRef(0);
-    const [inputBox, setInputBox] = useState(null);
-    const [inputText, setInputText] = useState("");
-    const [editingIndex, setEditingIndex] = useState(null);
-  
-    const fontSize = 30;
-    const fontFamily = "Caveat";
+  canvasRef, ctx,
+  color, tool,
+  elements, setElements,
+  history, setHistory,
+  canvasColor,
+  strokeWidth,
+  updateCanvas,
+  fontSize,
+  fontFamily,
+  isLive
+}) {
+  const isDrawing = useRef(false);
+  const startX = useRef(0), startY = useRef(0);
+  const [inputBox, setInputBox] = useState(null);
+  const [inputText, setInputText] = useState("");
+  const [editingIndex, setEditingIndex] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [dragStart, setDragStart] = useState(null);
 
@@ -68,7 +66,7 @@ export default function Board({
         e.preventDefault();
         const next = elements.filter((_, idx) => idx !== selectedIndex);
         setElements(next);
-        updateCanvas(next);
+        if (isLive) updateCanvas(next);
         setSelectedIndex(null);
       }
     };
@@ -81,11 +79,15 @@ export default function Board({
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.current = canvas.getContext("2d");
+  }, []);
+
+  useEffect(() => {
     drawAll();
   }, [elements, canvasColor, selectedIndex]);
 
   const drawAll = () => {
     const context = ctx.current;
+    context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     context.fillStyle = canvasColor;
     context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
@@ -140,7 +142,9 @@ export default function Board({
         strokeWidth,
         points: [{ x, y }]
       };
-      setElements(prev => [...prev, newEl]);
+      const next = [...elements, newEl];
+      setElements(next);
+      if (isLive) updateCanvas(next);
     } else if (tool === "select") {
       const idx = elements.findIndex(el => hitTest(el, x, y));
       if (idx >= 0) {
@@ -158,6 +162,7 @@ export default function Board({
       setElements(prev => {
         const copy = [...prev];
         copy[copy.length - 1].points.push({ x, y });
+        if (isLive) updateCanvas(copy);
         return copy;
       });
     } else if (tool === "select" && selectedIndex !== null && dragStart) {
@@ -178,6 +183,7 @@ export default function Board({
         }
 
         copy[selectedIndex] = el;
+        if (isLive) updateCanvas(copy);
         return copy;
       });
     }
@@ -189,7 +195,7 @@ export default function Board({
 
     if (tool === "select") {
       setDragStart(null);
-      updateCanvas(elements);
+      if (isLive) updateCanvas(elements);
     } else if (["line", "rect", "circle"].includes(tool)) {
       const newEl = {
         type: tool,
@@ -208,15 +214,10 @@ export default function Board({
       }[tool];
       const next = [...elements, el];
       setElements(next);
-      updateCanvas(next);
+      if (isLive) updateCanvas(next);
       setHistory([]);
     } else if (tool === "text") {
-      setInputBox({
-        x: x,
-        y: y,
-        width: 200,
-        height: fontSize + 10
-      });
+      setInputBox({ x, y, width: 200, height: fontSize + 10 });
       setInputText("");
     }
   };
@@ -237,7 +238,7 @@ export default function Board({
     };
     const next = [...elements, newEl];
     setElements(next);
-    updateCanvas(next);
+    if (isLive) updateCanvas(next);
     setInputBox(null);
     setInputText("");
     setHistory([]);
@@ -253,31 +254,30 @@ export default function Board({
         onMouseUp={handleMouseUp}
       />
       {inputBox && (
-       <textarea
-       style={{
-         position: "absolute",
-         top: inputBox.y,
-         left: inputBox.x,
-         width: inputBox.width,
-         font: `${fontSize}px "${fontFamily}", cursive`,
-         color,
-         backgroundColor: "transparent",
-         border: "none",
-         outline: "none",
-         padding: 0,
-         resize: "none",
-         overflow: "hidden",
-         caretColor: color,
-         zIndex: 1000,
-         lineHeight: `${fontSize + 4}px`
-       }}
-       autoFocus
-       value={inputText}
-       rows={inputText.split("\n").length || 1}
-       onChange={(e) => setInputText(e.target.value)}
-       onBlur={handleInputConfirm}
-     />
-     
+        <textarea
+          style={{
+            position: "absolute",
+            top: inputBox.y,
+            left: inputBox.x,
+            width: inputBox.width,
+            font: `${fontSize}px "${fontFamily}", cursive`,
+            color,
+            backgroundColor: "transparent",
+            border: "none",
+            outline: "none",
+            padding: 0,
+            resize: "none",
+            overflow: "hidden",
+            caretColor: color,
+            zIndex: 1000,
+            lineHeight: `${fontSize + 4}px`
+          }}
+          autoFocus
+          value={inputText}
+          rows={inputText.split("\n").length || 1}
+          onChange={(e) => setInputText(e.target.value)}
+          onBlur={handleInputConfirm}
+        />
       )}
     </div>
   );
